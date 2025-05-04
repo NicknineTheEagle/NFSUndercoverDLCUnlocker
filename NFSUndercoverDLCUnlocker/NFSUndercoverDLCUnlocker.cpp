@@ -15,7 +15,7 @@ typedef void( _fastcall *UPDATEPARTDBFUNC )( void *_this, void *_edx,
 	char *pContentData,
 	const char *curKey );
 
-int __fastcall ContentManager_EnumerateContent( void *_this, void *_edx )
+void __fastcall ContentManager_EnumerateContent( void *_this, void *_edx )
 {
 	std::vector<char> buf;
 	for ( const std::string &dlc : g_dlcList )
@@ -27,7 +27,6 @@ int __fastcall ContentManager_EnumerateContent( void *_this, void *_edx )
 
 	auto ContentManager_UpdatePartDB = (UPDATEPARTDBFUNC)0x6AD010;
 	ContentManager_UpdatePartDB( _this, NULL, buf.size() - 1, buf.data(), NULL );
-	return 1;
 }
 
 bool g_initialized = false;
