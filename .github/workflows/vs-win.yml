@@ -35,6 +35,7 @@ jobs:
           copy Release\NFSUndercoverDLCUnlocker.dll artifacts\NFSUndercoverDLCUnlocker.asi
           copy Release\NFSUndercoverDLCUnlocker.pdb artifacts\NFSUndercoverDLCUnlocker.pdb
           copy NFSUndercoverDLCUnlocker\resources\dlc.txt artifacts\dlc.txt
+          xcopy /E /I /Y NFSUndercoverDLCUnlocker\resources\dlc_examples artifacts\dlc_examples
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
