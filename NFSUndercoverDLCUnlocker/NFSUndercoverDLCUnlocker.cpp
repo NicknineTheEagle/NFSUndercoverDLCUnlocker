@@ -78,6 +78,14 @@ void *WINAPI Direct3DCreate9_hook( UINT SDKVersion )
 
 extern "C" __declspec( dllexport ) void InitializeASI()
 {
+	// Check if .exe file is compatible.
+	uintptr_t base = (uintptr_t)GetModuleHandleA( NULL );
+	IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)( base );
+	IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)( base + dos->e_lfanew );
+
+	if ( ( base + nt->OptionalHeader.AddressOfEntryPoint + ( 0x400000 - base ) ) != 0x87BA75 )
+		return;
+
 	MH_Initialize();
 	MH_CreateHookApiEx( L"d3d9", "Direct3DCreate9", &Direct3DCreate9_hook, (void **)&Direct3DCreate9_orig, &Direct3DCreate9_target );
 	MH_EnableHook( Direct3DCreate9_target );
