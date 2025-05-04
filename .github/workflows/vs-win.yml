@@ -1,0 +1,44 @@
+# github workflow to automate builds
+
+name: Windows build
+
+# Controls when the action will run. Triggers the workflow on push or pull request
+# events but only for the master branch
+on: [push, pull_request, workflow_dispatch]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    name: Visual Studio
+
+    # The type of runner that the job will run on
+    runs-on: windows-2022
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build
+        shell: cmd
+        run: MSBuild -m NFSUndercoverDLCUnlocker.sln -t:NFSUndercoverDLCUnlocker:Rebuild -p:Configuration=Release -p:Platform=x86
+
+      - name: Prepare files for packaging
+        shell: cmd
+        run: |
+          mkdir artifacts
+          copy Release\NFSUndercoverDLCUnlocker.dll artifacts\NFSUndercoverDLCUnlocker.asi
+          copy Release\NFSUndercoverDLCUnlocker.pdb artifacts\NFSUndercoverDLCUnlocker.pdb
+          copy NFSUndercoverDLCUnlocker\resources\dlc.txt artifacts\dlc.txt
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NFSUndercoverDLCUnlocker
+          path: artifacts
+          if-no-files-found: error
