@@ -14,6 +14,7 @@ typedef void( _fastcall *UPDATEPARTDBFUNC )( void *_this, void *_edx,
 	int nArraySize,
 	char *pContentData,
 	const char *curKey );
+UPDATEPARTDBFUNC ContentManager_UpdatePartDB = NULL;
 
 void __fastcall ContentManager_EnumerateContent( void *_this, void *_edx )
 {
@@ -25,7 +26,6 @@ void __fastcall ContentManager_EnumerateContent( void *_this, void *_edx )
 	}
 	buf.push_back( '\0' );
 
-	auto ContentManager_UpdatePartDB = (UPDATEPARTDBFUNC)0x6AD010;
 	ContentManager_UpdatePartDB( _this, NULL, buf.size() - 1, buf.data(), NULL );
 }
 
@@ -34,6 +34,15 @@ bool g_initialized = false;
 void Initialize()
 {
 	if ( g_initialized )
+		return;
+
+	auto test = hook::pattern(
+		"6A FF 68 ? ? ? ? 64 A1 00 00 00 00 50 83 EC "
+		"50 A1 ? ? ? ? 33 C4 89 44 24 4C 56 A1 ? ? "
+		"? ? 33 C4 50 8D 44 24 58 64 A3 00 00 00 00 A1 "
+		"? ? ? ? 8B 40 04"
+	);
+	if ( test.empty() )
 		return;
 
 	g_initialized = true;
@@ -56,11 +65,32 @@ void Initialize()
 		g_dlcList.push_back( str );
 	}
 
-	if ( MH_CreateHook( (LPVOID)0x6AD1B0, &ContentManager_EnumerateContent, NULL ) != MH_OK )
+	auto pattern_EnumerateContent = hook::pattern(
+		"6A FF 68 ? ? ? ? 64 A1 00 00 00 00 50 83 EC "
+		"50 A1 ? ? ? ? 33 C4 89 44 24 4C 56 A1 ? ? "
+		"? ? 33 C4 50 8D 44 24 58 64 A3 00 00 00 00 A1 "
+		"? ? ? ? 8B 40 04"
+	);
+	if ( pattern_EnumerateContent.empty() )
+		return;
+
+	auto pattern_UpdatePartDB = hook::pattern(
+		"81 EC 08 01 00 00 A1 ? ? ? ? 33 C4 89 84 24 "
+		"04 01 00 00 83 BC 24 10 01 00 00 00 56 8B F1 0F "
+		"84 ? ? ? ? 57 8B BC 24 14 01 00 00"
+	);
+	if ( pattern_UpdatePartDB.empty() )
+		return;
+
+	// 0x006ACFA0
+	if ( MH_CreateHook( pattern_EnumerateContent.get_first(), &ContentManager_EnumerateContent, NULL ) != MH_OK )
 		return;
 
 	if ( MH_EnableHook( MH_ALL_HOOKS ) != MH_OK )
 		return;
+
+	// 0x006ACE00
+	ContentManager_UpdatePartDB = (UPDATEPARTDBFUNC)pattern_UpdatePartDB.get_first();
 }
 
 void *( WINAPI *Direct3DCreate9_orig )( UINT ) = NULL;
@@ -77,14 +107,8 @@ void *WINAPI Direct3DCreate9_hook( UINT SDKVersion )
 
 extern "C" __declspec( dllexport ) void InitializeASI()
 {
-	// Check if .exe file is compatible.
-	uintptr_t base = (uintptr_t)GetModuleHandleA( NULL );
-	IMAGE_DOS_HEADER *dos = (IMAGE_DOS_HEADER *)( base );
-	IMAGE_NT_HEADERS *nt = (IMAGE_NT_HEADERS *)( base + dos->e_lfanew );
-
-	if ( ( base + nt->OptionalHeader.AddressOfEntryPoint + ( 0x400000 - base ) ) != 0x87BA75 )
-		return;
-
+	// Most game exes have SecuROM so we can't insert our hooks just yet.
+	// Create an early hook that lets us know when the game code has finished unpacking.
 	MH_Initialize();
 	MH_CreateHookApiEx( L"d3d9", "Direct3DCreate9", &Direct3DCreate9_hook, (void **)&Direct3DCreate9_orig, &Direct3DCreate9_target );
 	MH_EnableHook( Direct3DCreate9_target );
